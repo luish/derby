@@ -1,0 +1,53 @@
+variables {
+	int n;
+	int k;
+	char x;
+	int y;
+	boolean z;
+	string str;
+}
+
+main {
+    read(k); //função para leitura de dados do teclado
+	
+    y := 0;
+    
+    str := "compiladores GCC130";
+    
+    print(y);
+    
+	y := 1 / y;
+    y := (1+y);
+	
+	x := '1';
+	
+	/* comentarios com mais
+	de uma linha
+	*/
+	
+	z := true;
+	print(z);
+	z := false;
+	print(z);
+	
+	if ( y == 1 ) {
+        //print(k);
+	} else {
+        //print(z);
+	}
+	
+	while ( str == "abc" ) {
+	
+		k := k + 1;
+		k := 1 + k;
+		
+		if (k > 10){
+		    z := false;
+		    
+		    if (n > 10){
+		    	print(k);
+		    }
+		}
+		
+	}
+}

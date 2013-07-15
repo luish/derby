@@ -1,0 +1,337 @@
+COMPILER Derby
+
+	VarTable vars = new VarTable();
+	String var_name = null;
+	Var var1 = null, var2 = null;
+	
+	private int operation(int a, char op, int b){
+		switch(op){
+			case '+': return a+b;
+			case '-': return a-b;
+			case '*': return a*b;
+			case '/': if (b != 0) return a/b;
+		}
+		return 0;
+	}
+
+CHARACTERS
+  letter  = 'a'..'z' + 'A'..'Z'.
+  digit   = '0'..'9'.
+  special = '?' + '!' + ':' + '/' + '%'. 
+  le      = '\n'.
+  cr      = '\r'.
+  tab     = '\t'.
+  space   = ' '.
+  
+TOKENS
+  var    = letter {letter | digit}.
+  number = digit {digit}.
+  char   = '\'' (letter | digit | special | space) '\''.
+  string = '"' {letter | digit | special | le | tab | cr | space} '"'.
+  op     = '+' | '-' | '*' | '/'.
+  end    = ';'.
+  cond   = "==" | "!=" | "<" | "<=" | ">" | ">=".
+
+PRAGMAS
+	COMMENTS FROM "/*" TO "*/" NESTED
+	COMMENTS FROM "//" TO le
+	IGNORE le + cr + tab
+
+PRODUCTIONS
+
+  Derby
+    = Variables Main
+    .
+
+  Variables
+    = "variables" "{" {Variable} "}"
+    .
+    
+  Main
+    = "main" "{" {Command} "}"
+    .
+
+  Variable
+	= "int" var (. 
+		System.out.println("integer " + t.val + " declared.");
+		vars.set(new Var(t.val, Var.Type.INT, 0)); 
+	  .) end
+	| "boolean" var (. 
+		System.out.println("boolean " + t.val + " declared.");
+		vars.set(new Var(t.val, Var.Type.BOOLEAN, false)); 
+	  .) end
+	| "char" var (. 
+		System.out.println("char " + t.val + " declared.");
+		vars.set(new Var(t.val, Var.Type.CHAR, null)); 
+	  .) end
+	| "string" var (. 
+		System.out.println("string " + t.val + " declared.");
+		vars.set(new Var(t.val, Var.Type.STRING, null)); 
+	  .) end	  
+	.
+  
+  Command
+    = 
+    var (.
+	    	if (!vars.exists(t.val))
+    			SemErr(t.val + " not declared");
+    			
+	    	var_name = t.val;
+	  	.)
+	  	 
+      Attribution end 
+    
+    | Function end
+    | Conditional
+    | Repeat
+    | Read end
+    .
+  
+  Read
+    = "read" "(" var
+					(.
+						if (!vars.exists(t.val))
+				    		SemErr(t.val + " not declared");
+			  	 	.)
+             ")" .
+   
+  Attribution
+    = 
+      ":=" (.
+			if (!vars.exists(var_name))
+	    		SemErr(var_name + " not declared");
+	  	 .)
+      (Expr
+       | ("true" | "false") 
+       		(.  
+       			if (vars.exists(var_name)){
+       				var1 = vars.get(var_name);
+       				if (var1.type == Var.Type.BOOLEAN){
+       					if (t.val.equals("true"))
+       						var1.value = true;
+       					else 
+       						var1.value = false;
+       					vars.set(var1);
+       				}
+       				else {
+       					SemErr(var1.name + " is not a boolean");
+       				}
+       			}
+       			else {
+       				SemErr(var_name + " not declared");
+       			}
+       		.)
+       | char
+            (.
+                if (vars.exists(var_name)){
+                    var1 = vars.get(var_name);
+                    if (var1.type == Var.Type.CHAR){
+                        var1.value = (char) t.val.charAt(0);
+                        vars.set(var1);
+                    }
+                    else {
+                        SemErr(var1.name + " is not a char");
+                    }
+                }
+                else {
+                    SemErr(var_name + " not declared");
+                }
+            .)
+       | string
+            (.
+                if (vars.exists(var_name)){
+                    var1 = vars.get(var_name);
+                    if (var1.type == Var.Type.STRING){
+                        var1.value = t.val;
+                        vars.set(var1);
+                    }
+                    else {
+                        SemErr(var1.name + " is not a string");
+                    }
+                }
+                else {
+                    SemErr(var_name + " not declared");
+                }
+            .)            
+      )
+	. 
+  
+  Function
+	= 
+	  "print" "(" var (.
+	    if (vars.exists(t.val))
+			System.out.println(vars.get(t.val));
+	    else 
+	    	SemErr(t.val + " not declared");
+	  .) ")"
+	.
+
+  Conditional
+    = 
+      "if" 
+    	"(" Comparation ")" 
+    	"{" {Command} "}"
+      [ "else" "{" {Command} "}" ].
+ 
+  Comparation 
+  = var (.
+  			if (vars.exists(t.val))
+  				var1 = vars.get(t.val);
+  			else
+  			 	SemErr(t.val + " not declared");
+        .)
+    cond 
+    (
+    	("true" | "false") 
+    		(.
+				if (var1.type != Var.Type.BOOLEAN)
+					SemErr("Invalid boolean comparation");
+		    .) 
+    	| var 
+    		(. 
+    			if (vars.exists(t.val)){
+	    			var2 = vars.get(t.val);
+	    			if (var1 != null && var1.type != var2.type)
+	    				SemErr("Invalid comparation (different types)");
+				}
+				else {
+					SemErr(t.val + " not declared");
+				}
+    		.)
+    	| number 
+    	    (.
+				if (var1 != null && var1.type != Var.Type.INT)
+					SemErr("Invalid integer comparation");
+			.)
+		| char
+    		(.
+				if (var1 != null && var1.type != Var.Type.CHAR)
+					SemErr("Invalid char comparation");
+		    .)
+		| string
+    		(.
+				if (var1 != null && var1.type != Var.Type.STRING)
+					SemErr("Invalid string comparation");
+		    .)
+	).
+  
+  Repeat
+    = "while" "(" Comparation ")" "{" {Command} "}".
+
+  Expr
+	= "(" Expr2 ")"
+	| Expr2
+	.
+	
+  Expr2 (. 
+           int num1 = 0, num2 = 0;
+           Object result = null; 
+           char op;
+        .)
+  
+    = number (. 
+    			if (vars.exists(var_name)){
+    			
+    				var1 = vars.get(var_name);
+    				
+    				if (var1.type == Var.Type.INT){
+		    			num1 = Integer.parseInt(t.val);
+		    			result = num1;
+	    			}
+	    			else {
+	    				SemErr(var_name + " is not an integer var");
+	    			}
+    			}
+    			else {
+    				SemErr("Invalid var");
+				} 
+			 .)
+      [
+	     op (. 
+	     		op = t.val.charAt(0); 
+	     	.)
+	     (
+	         number (. 
+	         			num2 = Integer.parseInt(t.val);
+			    		result = operation(num1, op, num2);
+			    	.)
+	    	| var (. 
+	    				if (vars.exists(t.val)){
+	    					var1 = vars.get(t.val);
+	         				num2 = (int) var1.value;
+	         				if (op == '/' && num2 == 0)
+			    				SemErr("Invalid division by zero");
+			    			else
+			    				result = operation(num1, op, num2);
+			    		}
+			    		else {
+			    			SemErr("Invalid var " + t.val);
+		    			}
+			      .)
+	     )
+	  ]
+	  (.
+			if (vars.set(new Var(var_name, Var.Type.INT, result))) 
+				System.out.println(String.format("%s = %s", var_name, result));
+			else
+				SemErr("Invalid integer operation on " + t.val);	  	
+	  .)
+      
+    | var (.
+    		if (vars.exists(t.val)){
+    	 		var1 = vars.get(t.val);
+    			result = var1.value;
+			}
+    		else {
+	    		SemErr(var_name + " not declared");
+			} 
+    	  .)
+      [
+        op (. 
+        		op = t.val.charAt(0); 
+    		.)
+        (
+            var (.
+			      	if (vars.exists(t.val)){
+			      		var2 = vars.get(t.val);
+			      	
+			      		if (var1.type == var2.type){
+				      		num1 = (int) var1.value;
+				        	num2 = (int) var2.value;
+				        	if (op == '/' && num2 == 0)
+			    				SemErr("Invalid division by zero");
+			    			else
+			    				result = operation(num1, op, num2);
+			        	}
+			        	else {
+			        		SemErr("Invalid integer operation on " + var_name);
+			        	}
+		    		}
+					else {
+			    		SemErr(t.val + " not declared");
+					}
+			  	.)
+	        | number (.
+						if (var1 != null && var1.type == Var.Type.INT){
+			    			num1 = (int) var1.value;
+			    			num2 = Integer.parseInt(t.val);
+	        				if (op == '/' && num2 == 0)
+			    				SemErr("Invalid division by zero");
+			    			else
+			    				result = operation(num1, op, num2);
+		    			}
+		    			else {
+		    				SemErr(var1.name + " is not an integer var");
+		    			}
+	        		 .)
+        )
+      ]
+	  (.
+			if (vars.set(new Var(var_name, Var.Type.INT, result))) 
+				System.out.println(String.format("%s = %s", var_name, result));
+			else
+				SemErr("Invalid integer operation on " + t.val);	  	
+	  .)      
+    .
+
+END Derby.
